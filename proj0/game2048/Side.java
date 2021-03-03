@@ -22,7 +22,9 @@ public enum Side {
      *  to compute the result of tilting the board in any particular
      *  direction. */
 
-    NORTH(0, 0, 0, 1), EAST(0, 1, 1, 0), SOUTH(1, 1, 0, -1),
+    NORTH(0, 0, 0, 1),
+    EAST(0, 1, 1, 0),
+    SOUTH(1, 1, 0, -1),
     WEST(1, 0, -1, 0);
 
     /** The side that is in the direction (DCOL, DROW) from any square

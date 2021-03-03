@@ -70,6 +70,8 @@ public class TestMaxTileExists {
 
         b = new Board(rawVals, 0);
 
+//        System.out.println(b);
+
         assertTrue("Two 2048 tile on board\n" + b,
                 Model.maxTileExists(b));
     }
