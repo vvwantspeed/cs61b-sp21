@@ -15,7 +15,7 @@ public class ArrayDeque<T> {
         size = 0;
         items = (T[]) new Object[8];
         nextFirst = 0;
-        nextLast = 7;
+        nextLast = 1;
     }
 
     private int addOne(int index) {
@@ -109,9 +109,9 @@ public class ArrayDeque<T> {
      * Must not alter the deque!
      */
     public T get(int index) {
-        if (size <= index || index < 0) {
-            return null;
-        }
+//        if (size <= index || index < 0) {
+//            return null;
+//        }
         return items[(nextFirst + 1 + index) % items.length];
     }
 
