@@ -1,10 +1,9 @@
 package randomizedtest;
 
-import org.junit.Test;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
-
 import edu.princeton.cs.algs4.StdRandom;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
 
 /**
  * Created by hug.
