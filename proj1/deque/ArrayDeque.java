@@ -83,6 +83,7 @@ public class ArrayDeque<T> {
 
         nextFirst = addOne(nextFirst);
         T item = items[nextFirst];
+        items[nextFirst] = null;
         size -= 1;
         return item;
     }
@@ -97,6 +98,7 @@ public class ArrayDeque<T> {
 
         nextLast = minusOne(nextLast);
         T item = items[nextLast];
+        items[nextLast] = null;
         size -= 1;
         return item;
     }
@@ -107,6 +109,9 @@ public class ArrayDeque<T> {
      * Must not alter the deque!
      */
     public T get(int index) {
+        if (size <= index || index < 0) {
+            return null;
+        }
         return items[(nextFirst + 1 + index) % items.length];
     }
 
