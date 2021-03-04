@@ -153,11 +153,11 @@ public class Model extends Observable {
                             break;
                         }
 
-                        dr++;
-                    }
+                        if (dr == 3) {
+                            break;
+                        }
 
-                    if (dr == 4) {
-                        dr--;
+                        dr++;
                     }
 
                     // 如果发生了移动，设置changed
