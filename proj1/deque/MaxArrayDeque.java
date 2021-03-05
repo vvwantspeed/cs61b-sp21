@@ -3,22 +3,22 @@ package deque;
 import java.util.Comparator;
 import java.util.Iterator;
 
-public class MaxArrayDeque<T> implements Deque<T>, Iterable<T> {
+public class MaxArrayDeque<T> extends ArrayDeque<T> {
     private Comparator cmp;
     private T[] items;
     private int size;
     private int nextFirst;
     private int nextLast;
 
-    /**
-     * Creates an empty linked list deque
-     */
-    public MaxArrayDeque() {
-        size = 0;
-        items = (T[]) new Object[8];
-        nextFirst = 0;
-        nextLast = 1;
-    }
+//    /**
+//     * Creates an empty linked list deque
+//     */
+//    public MaxArrayDeque() {
+//        size = 0;
+//        items = (T[]) new Object[8];
+//        nextFirst = 0;
+//        nextLast = 1;
+//    }
 
     public MaxArrayDeque(Comparator<T> c) {
         size = 0;
@@ -69,12 +69,41 @@ public class MaxArrayDeque<T> implements Deque<T>, Iterable<T> {
         return (index + items.length - 1) % items.length;
     }
 
+    private void resize(int capacity) {
+        T[] resized = (T[]) new Object[capacity];
+
+        int index = addOne(nextFirst);
+        for (int i = 0; i < size; i++) {
+            resized[i] = items[index];
+            index = addOne(index);
+        }
+
+        nextFirst = capacity - 1;
+        nextLast = size;
+        items = resized;
+    }
+
+    private void checkMul() {
+        if (size == items.length) {
+            resize(size * 2);
+        }
+    }
+
+    private void checkDiv() {
+        int len = items.length;
+        if (len >= 16 && size < len / 4) {
+            resize(len / 4);
+        }
+    }
+
     /**
      * Adds an item of type T to the front of the deque.
      * You can assume that item is never null.
      */
     @Override
     public void addFirst(T item) {
+        checkMul();
+
         items[nextFirst] = item;
         nextFirst = minusOne(nextFirst);
         size += 1;
@@ -86,6 +115,8 @@ public class MaxArrayDeque<T> implements Deque<T>, Iterable<T> {
      */
     @Override
     public void addLast(T item) {
+        checkMul();
+
         items[nextLast] = item;
         nextLast = addOne(nextLast);
         size += 1;
@@ -124,6 +155,8 @@ public class MaxArrayDeque<T> implements Deque<T>, Iterable<T> {
             return null;
         }
 
+        checkDiv();
+
         nextFirst = addOne(nextFirst);
         T item = items[nextFirst];
         items[nextFirst] = null;
@@ -140,6 +173,8 @@ public class MaxArrayDeque<T> implements Deque<T>, Iterable<T> {
         if (size == 0) {
             return null;
         }
+
+        checkDiv();
 
         nextLast = minusOne(nextLast);
         T item = items[nextLast];
