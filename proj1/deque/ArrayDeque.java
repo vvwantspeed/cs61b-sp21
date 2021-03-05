@@ -198,6 +198,7 @@ public class ArrayDeque<T> implements Deque<T>, Iterable<T> {
             if (!(items[index].equals(other.get(i)))) {
                 return false;
             }
+            index = addOne(index);
         }
         return true;
     }
