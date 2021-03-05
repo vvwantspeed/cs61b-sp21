@@ -3,10 +3,10 @@ package deque;
 import java.util.Iterator;
 
 public class ArrayDeque<T> implements Deque<T>, Iterable<T> {
-    private T[] items;
-    private int size;
-    private int nextFirst;
-    private int nextLast;
+    protected T[] items;
+    protected int size;
+    protected int nextFirst;
+    protected int nextLast;
 
     /**
      * Creates an empty linked list deque
@@ -18,14 +18,14 @@ public class ArrayDeque<T> implements Deque<T>, Iterable<T> {
         nextLast = 1;
     }
 
-    private int addOne(int index) {
+    protected int addOne(int index) {
         return (index + 1) % items.length;
     }
-    private int minusOne(int index) {
+    protected int minusOne(int index) {
         return (index + items.length - 1) % items.length;
     }
 
-    private void resize(int capacity) {
+    protected void resize(int capacity) {
         T[] resized = (T[]) new Object[capacity];
 
         int index = addOne(nextFirst);
@@ -39,13 +39,13 @@ public class ArrayDeque<T> implements Deque<T>, Iterable<T> {
         items = resized;
     }
 
-    private void checkMul() {
+    protected void checkMul() {
         if (size == items.length) {
             resize(size * 2);
         }
     }
 
-    private void checkDiv() {
+    protected void checkDiv() {
         int len = items.length;
         if (len >= 16 && size < len / 4) {
             resize(len / 4);
@@ -161,7 +161,7 @@ public class ArrayDeque<T> implements Deque<T>, Iterable<T> {
         return new ArrayDequeIterator();
     }
 
-    private class ArrayDequeIterator implements Iterator<T> {
+    protected class ArrayDequeIterator implements Iterator<T> {
         private int ptr;
 
         ArrayDequeIterator() {

@@ -1,14 +1,9 @@
 package deque;
 
 import java.util.Comparator;
-import java.util.Iterator;
 
 public class MaxArrayDeque<T> extends ArrayDeque<T> {
     private Comparator cmp;
-    private T[] items;
-    private int size;
-    private int nextFirst;
-    private int nextLast;
 
     public MaxArrayDeque(Comparator<T> c) {
         size = 0;
@@ -50,10 +45,6 @@ public class MaxArrayDeque<T> extends ArrayDeque<T> {
         }
 
         return max;
-    }
-
-    private int addOne(int index) {
-        return (index + 1) % items.length;
     }
 }
 
