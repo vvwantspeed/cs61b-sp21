@@ -1,0 +1,16 @@
+This program inserts lexicographically increasing Strings into Maps as <String, Integer> pairs.
+
+Enter # strings to insert into the maps: erty
+Please enter a positive integer: 10000
+class bstmap.ULLMap: 0.84 sec
+class bstmap.BSTMap: 0.81 sec
+Java's Built-in TreeMap: 0.01 sec
+Java's Built-in HashMap: 0.01 sec
+Would you like to try more timed-tests? (y/n): y
+
+Enter # strings to insert into the maps: qwsaderfgt
+Please enter a positive integer: 100000
+--Stack Overflow -- couldn't add 100000 strings.
+--Stack Overflow -- couldn't add 100000 strings.
+Java's Built-in TreeMap: 0.11 sec
+Java's Built-in HashMap: 0.06 sec
