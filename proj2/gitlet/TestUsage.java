@@ -2,6 +2,7 @@ package gitlet;
 
 import java.io.*;
 import java.nio.file.Paths;
+import java.text.*;
 import java.util.*;
 import java.nio.charset.StandardCharsets;
 
@@ -15,7 +16,23 @@ public class TestUsage {
         // testFile(filename);
         // testSHA1();
         // testMapString();
-        testSubDir();
+        // testSubDir();
+
+//        testObject();
+
+        testDateFormat();
+    }
+
+    private static void testDateFormat() {
+        DateFormat df = new SimpleDateFormat("EEE MMM d HH:mm:ss yyyy Z", Locale.ENGLISH);
+        Date date = new Date();
+        System.out.println(df.format(date));
+    }
+
+    private static void testObject() {
+        Commit commit = new Commit();
+        File file = join(Repository.CWD, commit.getID());
+        writeObject(file, commit);
     }
 
     private static void testSubDir() {

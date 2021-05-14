@@ -3,7 +3,6 @@ package gitlet;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 
 import static gitlet.Utils.*;
@@ -93,23 +92,25 @@ public class Repository {
         // create directories
         GITLET_DIR.mkdir();
         STAGING_DIR.mkdir();
-        Utils.writeObject(STAGE, new Stage());
+        writeObject(STAGE, new Stage());
         BLOBS_DIR.mkdir();
-        HEADS_DIR.mkdirs();
+        COMMITS_DIR.mkdir();
+        REFS_DIR.mkdir();
+        HEADS_DIR.mkdir();
 
         // initial commit
         Commit initialCommit = new Commit();
-        initialCommit.writeToFile();
+        writeCommitToFile(initialCommit);
         String id = initialCommit.getID();
 
         // create branch: master
         String branchname = "master";
         writeContents(BRANCH, branchname);
         File master = join(HEADS_DIR, branchname);
-        Utils.writeContents(master, id);
+        writeContents(master, id);
 
         // create HEAD
-        Utils.writeContents(HEAD, branchname);
+        writeContents(HEAD, branchname);
     }
 
     /**
@@ -148,8 +149,11 @@ public class Repository {
         } else if (!stageId.equals(blobId)) {
             // update staging
             // del original, add the new version
-            join(STAGING_DIR, stageId).delete();
-            Utils.writeObject(join(STAGING_DIR, blobId), blob);
+            if (!stageId.equals("")) {
+                join(STAGING_DIR, stageId).delete();
+            }
+
+            writeObject(join(STAGING_DIR, blobId), blob);
             // change stage added files
             stage.addFile(filename, blobId);
             writeStage(stage);
@@ -183,7 +187,7 @@ public class Repository {
             stage.getRemoved().add(filename);
             // remove the file from the working directory
             // if the user has not already done so
-            Utils.restrictedDelete(file);
+            restrictedDelete(file);
         }
     }
 
@@ -207,7 +211,7 @@ public class Repository {
         Commit head = getHead();
         Commit commit = new Commit(message, head, stage);
         clearStage(stage);
-        commit.writeToFile();
+        writeCommitToFile(commit);
 
         String commitId = commit.getID();
         File branch = getCurrentBranch();
@@ -497,11 +501,11 @@ public class Repository {
     }
 
     private static Stage readStage() {
-        return Utils.readObject(STAGE, Stage.class);
+        return readObject(STAGE, Stage.class);
     }
 
     private static void writeStage(Stage stage) {
-        Utils.writeObject(STAGE, stage);
+        writeObject(STAGE, stage);
     }
 
     private static String getHeadBranchName() {
@@ -510,7 +514,7 @@ public class Repository {
 
     private static String getCommitIdFromBranchName(String branchName) {
         File tip = join(HEADS_DIR, branchName);
-        return Utils.readContentsAsString(tip);
+        return readContentsAsString(tip);
     }
 
     private static Commit getCommitFromId(String commitId) {
@@ -541,6 +545,11 @@ public class Repository {
         }
 
         return head;
+    }
+
+    private static void writeCommitToFile(Commit commit) {
+        File file = join(Repository.COMMITS_DIR, commit.getID());
+        writeObject(file, commit);
     }
 
 

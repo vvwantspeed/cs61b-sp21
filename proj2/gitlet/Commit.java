@@ -44,6 +44,7 @@ public class Commit implements Serializable {
         this.timestamp = new Date(0);
         this.id = Utils.sha1(message, timestamp.toString());
         this.parentID = "null";
+        this.blobs = new HashMap<>();
     }
 
     public Commit(String message, Commit parent, Stage stage) {
@@ -64,11 +65,6 @@ public class Commit implements Serializable {
         this.id = Utils.sha1(message, timestamp.toString(), parentID, blobs.toString());
     }
 
-    public void writeToFile() {
-        File file = Utils.join(Repository.COMMITS_DIR, id);
-        Utils.writeObject(file, this);
-    }
-
     public String getParentID() {
         return this.parentID;
     }
@@ -79,7 +75,7 @@ public class Commit implements Serializable {
 
     public String getDateString() {
         // Thu Nov 9 20:00:05 2017 -0800
-        DateFormat df = new SimpleDateFormat("EEE MMM d HH:mm:ss yyyy xxxx", Locale.ENGLISH);
+        DateFormat df = new SimpleDateFormat("EEE MMM d HH:mm:ss yyyy Z", Locale.ENGLISH);
         return df.format(timestamp);
     }
 
@@ -95,7 +91,7 @@ public class Commit implements Serializable {
         StringBuffer sb = new StringBuffer();
         sb.append("===\n");
         sb.append("commit " + this.id + "\n");
-        sb.append("Date " + this.getDateString() + "\n");
+        sb.append("Date: " + this.getDateString() + "\n");
         sb.append(this.message + "\n\n");
         return sb.toString();
     }
