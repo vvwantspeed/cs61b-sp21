@@ -19,8 +19,17 @@ public class TestUsage {
         // testSubDir();
 
 //        testObject();
+//        testDateFormat();
 
-        testDateFormat();
+        testListToString();
+    }
+
+    private static void testListToString() {
+        List<String> list = new ArrayList<>();
+        list.add("aa");
+        list.add("bb");
+        String out = list.toString();   // [aa, bb]
+        System.out.println(out);
     }
 
     private static void testDateFormat() {

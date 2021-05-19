@@ -1,8 +1,5 @@
 package gitlet;
 
-// TODO: any imports you need here
-
-import java.io.File;
 import java.io.Serializable;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -15,7 +12,6 @@ import java.util.*;
  */
 public class Commit implements Serializable {
     /**
-     * TODO: add instance variables here.
      *
      * List all instance variables of the Commit class here with a useful
      * comment above them describing what that variable represents and how that
@@ -28,7 +24,7 @@ public class Commit implements Serializable {
     /** The timestamp of this Commit. */
     private Date timestamp;
 
-    private String parentID;
+    private List<String> parents;
 
     /** The files this Commit track. */
     // filename, blobsID
@@ -43,15 +39,19 @@ public class Commit implements Serializable {
         this.message = "initial commit";
         this.timestamp = new Date(0);
         this.id = Utils.sha1(message, timestamp.toString());
-        this.parentID = "null";
+        this.parents = new LinkedList<>();
         this.blobs = new HashMap<>();
     }
 
-    public Commit(String message, Commit parent, Stage stage) {
+    public Commit(String message, List<Commit> parents, Stage stage) {
         this.message = message;
         this.timestamp = new Date();
-        this.parentID = parent.getID();
-        this.blobs = parent.getBlobs();
+        this.parents = new ArrayList<>(2);
+        for (Commit p : parents) {
+            this.parents.add(p.getID());
+        }
+        // using first parent blobs
+        this.blobs = parents.get(0).getBlobs();
 
         for (Map.Entry<String, String> item : stage.getAdded().entrySet()) {
             String filename = item.getKey();
@@ -62,11 +62,18 @@ public class Commit implements Serializable {
             blobs.remove(filename);
         }
 
-        this.id = Utils.sha1(message, timestamp.toString(), parentID, blobs.toString());
+        this.id = Utils.sha1(message, timestamp.toString(), parents.toString(), blobs.toString());
     }
 
-    public String getParentID() {
-        return this.parentID;
+    public List<String> getParents() {
+        return parents;
+    }
+
+    public String getFirstParentId() {
+        if (parents.isEmpty()) {
+            return "null";
+        }
+        return parents.get(0);
     }
 
     public String getID() {

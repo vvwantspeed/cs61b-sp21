@@ -11,7 +11,7 @@ public class Main {
      *  <COMMAND> <OPERAND1> <OPERAND2> ... 
      */
     public static void main(String[] args) {
-        if (args == null) {
+        if (args == null || args.length == 0) {
             System.out.println("Please enter a command.");
             System.exit(0);
         }
@@ -92,11 +92,14 @@ public class Main {
                 Repository.checkIfInitDirectoryExists();
                 Repository.reset(args[1]);
                 break;
+            case "merge":
+                Repository.checkCommandLength(args.length, 2);
+                Repository.checkIfInitDirectoryExists();
+                Repository.merge(args[1]);
+                break;
             default:
                 System.out.println("No command with that name exists.");
                 System.exit(0);
         }
     }
-
-
 }

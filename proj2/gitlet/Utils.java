@@ -237,4 +237,17 @@ class Utils {
         System.out.printf(msg, args);
         System.out.println();
     }
+
+    static void addMsg(String msg) {
+        File msgFile = new File("E:\\CS\\CS61B - Data Structures\\cs61b-sp21\\proj2\\testing\\msg.txt");
+            if (!msgFile.exists()) {
+                try {
+                    msgFile.createNewFile();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            msg = readContentsAsString(msgFile) + msg;
+            writeContents(msgFile, msg);
+    }
 }
