@@ -651,10 +651,10 @@ public class Repository {
         sb.append("<<<<<<< HEAD\n");
         // contents of file in current branch
         sb.append(head);
-        sb.append("\n=======\n");
+        sb.append("=======\n");
         // contents of file in given branch
         sb.append(other);
-        sb.append("\n>>>>>>>\n");
+        sb.append(">>>>>>>\n");
         return sb.toString();
     }
 
