@@ -650,10 +650,10 @@ public class Repository {
         StringBuffer sb = new StringBuffer();
         sb.append("<<<<<<< HEAD\n");
         // contents of file in current branch
-        sb.append(head);
+        sb.append(head.equals("") ? head : head + "\n");
         sb.append("=======\n");
         // contents of file in given branch
-        sb.append(other);
+        sb.append(other.equals("") ? other : other + "\n");
         sb.append(">>>>>>>\n");
         return sb.toString();
     }
