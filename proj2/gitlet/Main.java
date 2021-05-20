@@ -71,9 +71,11 @@ public class Main {
                     Repository.checkoutBranch(args[1]);
                 } else if (len == 3) {
                     // java gitlet.Main checkout -- [file name]
+                    Repository.checkEqual(args[1], "--");
                     Repository.checkoutFileFromHead(args[2]);
                 } else if (len == 4) {
                     // java gitlet.Main checkout [commit id] -- [file name]
+                    Repository.checkEqual(args[2], "--");
                     Repository.checkoutFileFromCommitId(args[1], args[3]);
                 }
                 break;

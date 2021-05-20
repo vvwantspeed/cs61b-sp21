@@ -3,9 +3,11 @@ package gitlet;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.rmi.server.UID;
 import java.util.*;
 
 import static gitlet.Utils.*;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 /**
  * Represents a gitlet repository.
@@ -28,17 +30,17 @@ public class Repository {
 
     /**
      * The .gitlet directory.
-     *
+     * <p>
      * .gitlet
-     *     -- staging
-     *     -- [stage]
-     *     -- blobs
-     *     -- commits
-     *     -- refs
-     *         -- heads -> [master][branch name]
-     *         -- remotes // reserved
-     *     -- [HEAD]
-     *     -- [branch]
+     * -- staging
+     * -- [stage]
+     * -- blobs
+     * -- commits
+     * -- refs
+     * -- heads -> [master][branch name]
+     * -- remotes // reserved
+     * -- [HEAD]
+     * -- [branch]
      */
     public static final File GITLET_DIR = join(CWD, ".gitlet");
 
@@ -64,16 +66,11 @@ public class Repository {
     public static final File REFS_DIR = join(GITLET_DIR, "refs");
     public static final File HEADS_DIR = join(REFS_DIR, "heads");
     /**
-     * stores current branch's name if it points to tip,
-     * or sha1 of the Commit for detached
+     * stores current branch's name if it points to tip
      */
     public static final File HEAD = join(GITLET_DIR, "HEAD");
     // Note that in Gitlet, there is no way to be in a detached head state
 
-    /**
-     * stores current branch's name
-     */
-    public static final File BRANCH = join(GITLET_DIR, "branch");
 
     public static void init() {
         // Failure cases
@@ -98,7 +95,7 @@ public class Repository {
 
         // create branch: master
         String branchName = "master";
-        writeContents(BRANCH, branchName);
+        writeContents(HEAD, branchName);
         File master = join(HEADS_DIR, branchName);
         writeContents(master, id);
 
@@ -169,18 +166,20 @@ public class Repository {
             System.exit(0);
         }
 
-        Blob blob = new Blob(filename);
-        String blobId = blob.getId();
 
         // Unstage the file if it is currently staged for addition.
         if (!stageId.equals("")) {
             stage.getAdded().remove(filename);
-        }
-        // If the file is tracked in the current commit
-        // the same content? or just filename?
-        if (blobId.equals(headId)) {
+        } else {
             // stage it for removal
             stage.getRemoved().add(filename);
+        }
+
+        Blob blob = new Blob(filename);
+        String blobId = blob.getId();
+        // If the file is tracked in the current commit
+        // the same content? or just filename?
+        if (blob.exists() && blobId.equals(headId)) {
             // remove the file from the working directory
             // if the user has not already done so
             restrictedDelete(file);
@@ -243,11 +242,11 @@ public class Repository {
     public static void status() {
         StringBuffer sb = new StringBuffer();
         sb.append("=== Branches ===\n");
-        String currentBranch = readContentsAsString(BRANCH);
-        sb.append("*" + currentBranch + "\n");
+        String headBranch = readContentsAsString(HEAD);
+        sb.append("*" + headBranch + "\n");
         List<String> branches = plainFilenamesIn(HEADS_DIR);
         for (String branch : branches) {
-            if (!branch.equals(currentBranch)) {
+            if (!branch.equals(headBranch)) {
                 sb.append(branch + "\n");
             }
         }
@@ -289,12 +288,31 @@ public class Repository {
      * @return
      */
     public static void checkoutFileFromCommitId(String commitId, String filename) {
+        commitId = getCompleteCommitId(commitId);
         File commitFile = join(COMMITS_DIR, commitId);
         if (!commitFile.exists()) {
             System.out.println("No commit with that id exists.");
+            System.exit(0);
         }
         Commit commit = readObject(commitFile, Commit.class);
         checkoutFileFromCommit(commit, filename);
+    }
+
+    /**
+     * short id
+     * starts with the same six digits
+     */
+    private static String getCompleteCommitId(String commitId) {
+        if (commitId.length() == UID_LENGTH) {
+            return commitId;
+        }
+
+        for (String filename : COMMITS_DIR.list()) {
+            if (filename.startsWith(commitId)) {
+                return filename;
+            }
+        }
+        return null;
     }
 
     private static void checkoutFileFromCommit(Commit commit, String filename) {
@@ -332,12 +350,14 @@ public class Repository {
             System.exit(0);
         }
 
-        validUntrackedFile();
+        Commit otherCommit = getCommitFromBranchName(branchName);
+
+        // If a working file is untracked in the current branch
+        // and would be overwritten by the checkout
+        validUntrackedFile(otherCommit.getBlobs());
 
         clearStage(readStage());
-        // String headCommitId = getCommitIdFromBranchName(headBranchName);
-        Commit commit = getCommitFromBranchName(branchName);
-        replaceWorkingPlaceWithCommit(commit);
+        replaceWorkingPlaceWithCommit(otherCommit);
 
         // change HEAD point to this branch
         writeContents(HEAD, branchName);
@@ -347,6 +367,8 @@ public class Repository {
     /**
      * java gitlet.Main branch [branch name]
      * create a new branch with name [branchName]
+     * This command does NOT immediately switch to the newly created branch
+     * (just as in real Git).
      */
     public static void branch(String branchName) {
         File branch = join(HEADS_DIR, branchName);
@@ -357,8 +379,6 @@ public class Repository {
 
         String commitId = getHeadCommitId();
         writeContents(branch, commitId);
-
-        writeContents(HEAD, branchName);
     }
 
     /**
@@ -387,15 +407,16 @@ public class Repository {
             System.exit(0);
         }
 
-        validUntrackedFile();
-
         Commit commit = getCommitFromId(commitId);
+
+        validUntrackedFile(commit.getBlobs());
+
         replaceWorkingPlaceWithCommit(commit);
         clearStage(readStage());
 
         // moves the current branch’s head to that commit node.
-        String currentBranchName = getHeadBranchName();
-        writeContents(join(HEADS_DIR, currentBranchName), commitId);
+        String headBranchName = getHeadBranchName();
+        writeContents(join(HEADS_DIR, headBranchName), commitId);
     }
 
     /**
@@ -420,8 +441,6 @@ public class Repository {
             System.out.println("Cannot merge a branch with itself.");
             System.exit(0);
         }
-
-        validUntrackedFile();
 
         Commit head = getCommitFromBranchName(headBranchName);
         Commit other = getCommitFromBranchName(otherBranchName);
@@ -450,10 +469,7 @@ public class Repository {
     }
 
 
-
-
     /**
-     *
      * Helper Functions
      */
 
@@ -470,7 +486,7 @@ public class Repository {
         writeCommitToFile(commit);
 
         String commitId = commit.getID();
-        File branch = getCurrentBranch();
+        File branch = getHeadBranchFile();
         writeContents(branch, commitId);
     }
 
@@ -478,6 +494,7 @@ public class Repository {
     // The split point is a latest common ancestor of the current and given branch heads
     private static Commit getLatestCommonAncestor(Commit head, Commit other) {
         Set<String> headAncestors = bfsFromCommit(head);
+
         Queue<Commit> queue = new LinkedList<>();
         queue.add(other);
         while (!queue.isEmpty()) {
@@ -495,22 +512,27 @@ public class Repository {
     }
 
     private static Set<String> bfsFromCommit(Commit head) {
-        Set<String> set = new HashSet<>();
+        Set<String> res = new HashSet<>();
         Queue<Commit> queue = new LinkedList<>();
         queue.add(head);
         while (!queue.isEmpty()) {
             Commit commit = queue.poll();
-            if (!set.contains(commit.getID()) && !commit.getParents().isEmpty()) {
+            if (!res.contains(commit.getID()) && !commit.getParents().isEmpty()) {
                 for (String id : commit.getParents()) {
                     queue.add(getCommitFromId(id));
                 }
             }
+            res.add(commit.getID());
         }
-        return set;
+        return res;
     }
 
     private static void mergeWithLCA(Commit lca, Commit head, Commit other) {
         Set<String> filenames = getAllFilenames(lca, head, other);
+
+        List<String> remove = new LinkedList<>();
+        List<String> rewrite = new LinkedList<>();
+        List<String> conflict = new LinkedList<>();
 
         for (String filename : filenames) {
             // blobId
@@ -522,25 +544,64 @@ public class Repository {
                 continue;
             }
             if (lId.equals(hId)) {
-            // change the file to other version
+                // change the file to other version
                 if (oId.equals("")) {
                     // remove the file
-                    rm(filename);
+                    // rm(filename);
+                    remove.add(filename);
                 } else {
                     // rewrite working space's file with other version
                     // checkoutFileFromBlobId(oId);
-                    Blob blob = getBlobFromId(oId);
-                    checkoutFileFromBlob(blob);
-                    // add the file
-                    add(filename);
+                    // Blob blob = getBlobFromId(oId);
+                    // checkoutFileFromBlob(blob);
+                    // // add the file
+                    // add(filename);
+                    rewrite.add(filename);
                 }
             } else {
-            // conflict
-                String content = getConflictFile(getBlobFromId(hId).getContentAsString().split("\n"),
-                                                 getBlobFromId(oId).getContentAsString().split("\n"));
+                // conflict
+                conflict.add(filename);
+            }
+        }
+
+
+        // If an untracked file in the current commit would be overwritten or deleted by the merge
+        List<String> untrackedFiles = getUntrackedFiles();
+        for (String filename : untrackedFiles) {
+            if (remove.contains(filename) || rewrite.contains(filename) || conflict.contains(filename)) {
+                System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
+                System.exit(0);
+            }
+        }
+
+        if (!remove.isEmpty()) {
+            for (String filename : remove) {
+                rm(filename);
+            }
+        }
+
+        if (!rewrite.isEmpty()) {
+            for (String filename : rewrite) {
+                String oId = other.getBlobs().getOrDefault(filename, "");
+                Blob blob = getBlobFromId(oId);
+                checkoutFileFromBlob(blob);
+                // add the file
+                add(filename);
+            }
+        }
+
+        if (!conflict.isEmpty()) {
+            for (String filename : conflict) {
+                // blobId
+                String hId = head.getBlobs().getOrDefault(filename, "");
+                String oId = other.getBlobs().getOrDefault(filename, "");
+
+                String headContent = getContentAsStringFromBlobId(hId);
+                String otherContent = getContentAsStringFromBlobId(oId);
+                String content = getConflictFile(headContent.split("\n"),
+                        otherContent.split("\n"));
                 rewriteFile(filename, content);
                 System.out.println("Encountered a merge conflict.");
-                System.exit(0);
             }
         }
 
@@ -549,6 +610,13 @@ public class Repository {
          * but a file of the same name is present in the working directory,
          * it is left alone and continues to be absent (not tracked nor staged) in the merge.
          */
+    }
+
+    private static String getContentAsStringFromBlobId(String blobId) {
+        if (blobId.equals("")) {
+            return "";
+        }
+        return getBlobFromId(blobId).getContentAsString();
     }
 
 
@@ -583,10 +651,10 @@ public class Repository {
         sb.append("<<<<<<< HEAD\n");
         // contents of file in current branch
         sb.append(head);
-        sb.append("=======\n");
+        sb.append("\n=======\n");
         // contents of file in given branch
         sb.append(other);
-        sb.append(">>>>>>>\n");
+        sb.append("\n>>>>>>>\n");
         return sb.toString();
     }
 
@@ -595,8 +663,12 @@ public class Repository {
         writeContents(file, content);
     }
 
-    private static Blob getBlobFromId(String oId) {
-        return readObject(join(BLOBS_DIR, oId), Blob.class);
+    /**
+     * be sure that blob id is not "".
+     */
+    private static Blob getBlobFromId(String blobId) {
+        File file = join(BLOBS_DIR, blobId);
+        return readObject(file, Blob.class);
     }
 
     private static Set<String> getAllFilenames(Commit lca, Commit head, Commit other) {
@@ -607,16 +679,41 @@ public class Repository {
         return set;
     }
 
-    private static void validUntrackedFile() {
+    /**
+     * If a working file is untracked in the current branch
+     * and would be overwritten by the blobs(checkout).
+     */
+    private static void validUntrackedFile(Map<String, String> blobs) {
         List<String> untrackedFiles = getUntrackedFiles();
-        if (!untrackedFiles.isEmpty()) {
-            System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
-            System.exit(0);
+        if (untrackedFiles.isEmpty()) {
+            return;
         }
+
+        for (String filename : untrackedFiles) {
+            String blobId = new Blob(filename).getId();
+            String otherId = blobs.getOrDefault(filename, "");
+            if (!otherId.equals(blobId)) {
+                System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
+                System.exit(0);
+            }
+        }
+    }
+
+    private static List<String> getUntrackedFiles() {
+        List<String> res = new ArrayList<>();
+        List<String> stageFiles = readStage().getStagedFilename();
+        Set<String> headFiles = getHead().getBlobs().keySet();
+        for (String filename : plainFilenamesIn(CWD)) {
+            if (!stageFiles.contains(filename) && !headFiles.contains(filename)) {
+                res.add(filename);
+            }
+        }
+        return res;
     }
 
     private static void replaceWorkingPlaceWithCommit(Commit commit) {
         clearWorkingSpace();
+
         for (Map.Entry<String, String> item : commit.getBlobs().entrySet()) {
             String filename = item.getKey();
             String blobId = item.getValue();
@@ -646,7 +743,7 @@ public class Repository {
     private static FilenameFilter gitletFliter = new FilenameFilter() {
         @Override
         public boolean accept(File dir, String name) {
-            return !name.equals(".gitlet") || !new File(dir, name).isDirectory();
+            return !name.equals(".gitlet");
         }
     };
 
@@ -660,22 +757,16 @@ public class Repository {
         }
     }
 
-    private static List<String> getUntrackedFiles() {
-        List<String> res = new ArrayList<>();
-        List<String> stageFiles = readStage().getStagedFilename();
-        Set<String> headFiles = getHead().getBlobs().keySet();
-        for (String filename : plainFilenamesIn(CWD)) {
-            if (!stageFiles.contains(filename) && !headFiles.contains(filename)) {
-                res.add(filename);
-            }
-        }
-        return res;
+
+    private static File getHeadBranchFile() {
+        return join(HEADS_DIR, readContentsAsString(HEAD));   // ..\refs\heads\<branch name>
     }
 
-    private static File getCurrentBranch() {
-        return join(HEADS_DIR, readContentsAsString(BRANCH));   // ..\refs\heads\<branch name>
-    }
-
+    /**
+     * moving all staging dir's blob file to blobs dir.
+     *
+     * @param stage
+     */
     private static void clearStage(Stage stage) {
         File[] files = STAGING_DIR.listFiles();
         if (files == null) {
@@ -685,13 +776,12 @@ public class Repository {
         for (File file : files) {
             Path source = file.toPath();
             try {
-                Files.move(source, targetDir.resolve(source.getFileName())); // ATOMIC_MOVE);//REPLACE_EXISTING);
+                Files.move(source, targetDir.resolve(source.getFileName()), REPLACE_EXISTING);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
 
-//        stage = new Stage();
         writeStage(new Stage());
     }
 
@@ -760,8 +850,18 @@ public class Repository {
 
     static void checkCommandLength(int actual, int expected) {
         if (actual != expected) {
-            System.out.println("Incorrect operands.");
-            System.exit(0);
+            messageIncorrectOperands();
         }
+    }
+
+    static void checkEqual(String actual, String expected) {
+        if (!actual.equals(expected)) {
+            messageIncorrectOperands();
+        }
+    }
+
+    static void messageIncorrectOperands() {
+        System.out.println("Incorrect operands.");
+        System.exit(0);
     }
 }

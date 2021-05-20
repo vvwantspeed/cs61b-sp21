@@ -5,6 +5,8 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+import static gitlet.Utils.*;
+
 /** Represents a gitlet commit object.
  *  does at a high level.
  *
@@ -38,7 +40,7 @@ public class Commit implements Serializable {
     public Commit() {
         this.message = "initial commit";
         this.timestamp = new Date(0);
-        this.id = Utils.sha1(message, timestamp.toString());
+        this.id = sha1(message, timestamp.toString());
         this.parents = new LinkedList<>();
         this.blobs = new HashMap<>();
     }
@@ -62,7 +64,7 @@ public class Commit implements Serializable {
             blobs.remove(filename);
         }
 
-        this.id = Utils.sha1(message, timestamp.toString(), parents.toString(), blobs.toString());
+        this.id = sha1(message, timestamp.toString(), parents.toString(), blobs.toString());
     }
 
     public List<String> getParents() {
@@ -98,6 +100,9 @@ public class Commit implements Serializable {
         StringBuffer sb = new StringBuffer();
         sb.append("===\n");
         sb.append("commit " + this.id + "\n");
+        if (parents.size() == 2) {
+            sb.append("Merge: " + parents.get(0).substring(0, 7) + " " + parents.get(1).substring(0, 7) + "\n");
+        }
         sb.append("Date: " + this.getDateString() + "\n");
         sb.append(this.message + "\n\n");
         return sb.toString();

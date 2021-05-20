@@ -18,10 +18,25 @@ public class TestUsage {
         // testMapString();
         // testSubDir();
 
-//        testObject();
-//        testDateFormat();
+       // testObject();
+       // testDateFormat();
 
-        testListToString();
+        // testListToString();
+        // testSetToString();
+        testSubString();
+    }
+
+    private static void testSubString() {
+        String sha1 = sha1("sha1test");
+        System.out.println(sha1);
+        System.out.println(sha1.substring(0, 7));
+    }
+
+    private static void testSetToString() {
+        Set<String> set = new HashSet<>();
+        set.add("aa");
+        set.add("bb");
+        System.out.println(set);
     }
 
     private static void testListToString() {
@@ -84,18 +99,18 @@ public class TestUsage {
      */
     private static void testSHA1(String filename) {
         File file = new File(filename);
-        byte[] content = Utils.readContents(file);
-        String contentString = Utils.readContentsAsString(file);
+        byte[] content = gitlet.Utils.readContents(file);
+        String contentString = gitlet.Utils.readContentsAsString(file);
         //content = contentString.getBytes(StandardCharsets.UTF_8);
         // List<Object> objs = List.of(filename, content, contentString);
         // String uid = Utils.sha1(objs);
         // String uid = Utils.sha1(filename, content, contentString);
-        System.out.println(Utils.sha1(filename, content, contentString));
-        System.out.println(Utils.sha1(filename, contentString));
-        System.out.println(Utils.sha1(filename, new String(content, StandardCharsets.UTF_8)));
-        System.out.println(Utils.sha1(filename, content));
-        System.out.println(Utils.sha1(filename, content.toString()));
-        System.out.println(Utils.sha1(filename, Arrays.toString(content)));
+        System.out.println(gitlet.Utils.sha1(filename, content, contentString));
+        System.out.println(gitlet.Utils.sha1(filename, contentString));
+        System.out.println(gitlet.Utils.sha1(filename, new String(content, StandardCharsets.UTF_8)));
+        System.out.println(gitlet.Utils.sha1(filename, content));
+        System.out.println(gitlet.Utils.sha1(filename, content.toString()));
+        System.out.println(gitlet.Utils.sha1(filename, Arrays.toString(content)));
         /*
         48d9be997d2d8248dab9d2a0b9b559e394376c22
         ade93a48def8d68f57734380e54313147bd92017

@@ -95,7 +95,6 @@ Represent a commit.
 	-- refs
 		-- heads -> [master][branch name]
 	-- [HEAD]
-	-- [branch]
 ```
 
 + `staging` directory : stores staged(added) blob file; name is blob id, content is the Blob object.  
@@ -103,5 +102,4 @@ Represent a commit.
 + `blobs` directory: stores all tracked(committed) file; name is blob id, content is the Blob object.  
 + `commits` directory: stores all commits; name is commit id, content is the Commit object.  
 + `head` directory in `refs` : stores different branch; name is branch name, content is the commit id on the tip of the branch.
-+ `HEAD` file: stores current branch's name if it points to tip; or sha1 of the Commit for detached.
-+ `branch` file: stores current branch's name.
++ `HEAD` file: stores current branch's name if it points to tip.

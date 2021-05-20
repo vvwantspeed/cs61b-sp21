@@ -1,7 +1,10 @@
 package gitlet;
 
+import java.io.File;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
+
+import static gitlet.Utils.*;
 
 /**
  *  Represents a file Object.
@@ -13,8 +16,18 @@ public class Blob implements Serializable {
 
     public Blob(String filename) {
         this.filename = filename;
-        this.content = Utils.readContents(Utils.join(Repository.CWD, filename));
-        this.id = Utils.sha1(filename, content);
+        File file = join(Repository.CWD, filename);
+        if (file.exists()) {
+            this.content = readContents(file);
+            this.id = sha1(filename, content);
+        } else {
+            this.content = null;
+            this.id = sha1(filename);
+        }
+    }
+
+    public boolean exists() {
+        return this.content != null;
     }
 
     public String getFilename() {
