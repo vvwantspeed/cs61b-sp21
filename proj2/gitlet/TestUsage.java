@@ -23,7 +23,52 @@ public class TestUsage {
 
         // testListToString();
         // testSetToString();
-        testSubString();
+        // testSubString();
+
+        // testWriteContent();
+        // testRemote();
+        testRemotePath();
+    }
+
+    private static void testRemotePath() {
+        String path = "..\\test\\.git";
+        File file = new File(path);
+        System.out.println(file);
+        try {
+            System.out.println(file.getCanonicalFile());
+            System.out.println(file.getCanonicalPath());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        /**
+        File file = join(path, "config");
+        String str = readContentsAsString(file);
+        System.out.println(str);
+        // ..\\remotegit\\.git
+         */
+    }
+
+    private static void testRemote() {
+        String str = "../remotegit/.git";
+        if (File.separator.equals("\\")) {
+            str = str.replaceAll("/", "\\\\\\\\");
+        }
+        File file = new File(str);
+        System.out.println(str);    // ..\\remotegit\\.git
+        System.out.println(file.exists());
+    }
+
+    private static void testWriteContent() {
+        File file = join(path, "config");
+        //String content = readContentsAsString(file);
+
+        String str = "../remotegit/.git";
+        if (File.separator.equals("\\")) {
+            str = str.replaceAll("/", "\\\\\\\\");
+        }
+        writeContents(file, str);
+        // 写进去是 ..\\remotegit\\.git
     }
 
     private static void testSubString() {
@@ -55,7 +100,8 @@ public class TestUsage {
 
     private static void testObject() {
         Commit commit = new Commit();
-        File file = join(Repository.CWD, commit.getID());
+        Repository repo = new Repository();
+        File file = join(repo.CWD, commit.getID());
         writeObject(file, commit);
     }
 

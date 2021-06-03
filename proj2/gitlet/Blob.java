@@ -14,9 +14,9 @@ public class Blob implements Serializable {
     private byte[] content;
     private String id;
 
-    public Blob(String filename) {
+    public Blob(String filename, File CWD) {
         this.filename = filename;
-        File file = join(Repository.CWD, filename);
+        File file = join(CWD, filename);
         if (file.exists()) {
             this.content = readContents(file);
             this.id = sha1(filename, content);

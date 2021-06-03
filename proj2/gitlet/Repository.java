@@ -3,7 +3,6 @@ package gitlet;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.rmi.server.UID;
 import java.util.*;
 
 import static gitlet.Utils.*;
@@ -26,7 +25,30 @@ public class Repository {
     /**
      * The current working directory.
      */
-    public static final File CWD = new File(System.getProperty("user.dir"));
+    public File CWD;
+
+    public Repository() {
+        this.CWD = new File(System.getProperty("user.dir"));
+        configDIRS();
+    }
+
+    public Repository(String cwd) {
+        this.CWD = new File(cwd);
+        configDIRS();
+    }
+
+    private void configDIRS() {
+        this.GITLET_DIR = join(CWD, ".gitlet");
+        this.STAGING_DIR = join(GITLET_DIR, "staging");
+        this.STAGE = join(GITLET_DIR, "stage");
+        this.BLOBS_DIR = join(GITLET_DIR, "blobs");
+        this.COMMITS_DIR = join(GITLET_DIR, "commits");
+        this.REFS_DIR = join(GITLET_DIR, "refs");
+        this.HEADS_DIR = join(REFS_DIR, "heads");
+        this.REMOTES_DIR = join(REFS_DIR, "remotes");
+        this.HEAD = join(GITLET_DIR, "HEAD");
+        this.CONFIG = join(GITLET_DIR, "config");
+    }
 
     /**
      * The .gitlet directory.
@@ -37,42 +59,45 @@ public class Repository {
      * -- blobs
      * -- commits
      * -- refs
-     * -- heads -> [master][branch name]
-     * -- remotes // reserved
+     *  -- heads -> [master][branch name]
+     *  -- remotes
+     *      -- [remote name] ->[branch name]
      * -- [HEAD]
-     * -- [branch]
+     * -- [config]
      */
-    public static final File GITLET_DIR = join(CWD, ".gitlet");
+    public File GITLET_DIR;
 
     /**
      * The staging directory, restores staging Blobs
      */
-    public static final File STAGING_DIR = join(GITLET_DIR, "staging");
+    public File STAGING_DIR;
 
     /**
      * The Stage Object
      */
-    public static final File STAGE = join(GITLET_DIR, "stage");
+    public File STAGE;
 
     /**
      * The Objects directory, stores committed blobs & commits
      */
-    public static final File BLOBS_DIR = join(GITLET_DIR, "blobs");
-    public static final File COMMITS_DIR = join(GITLET_DIR, "commits");
+    public File BLOBS_DIR;
+    public File COMMITS_DIR;
 
     /**
      * The branches directory
      */
-    public static final File REFS_DIR = join(GITLET_DIR, "refs");
-    public static final File HEADS_DIR = join(REFS_DIR, "heads");
+    public File REFS_DIR;
+    public File HEADS_DIR;
+    public File REMOTES_DIR;
     /**
      * stores current branch's name if it points to tip
      */
-    public static final File HEAD = join(GITLET_DIR, "HEAD");
+    public File HEAD;
     // Note that in Gitlet, there is no way to be in a detached head state
 
+    public File CONFIG;
 
-    public static void init() {
+    public void init() {
         // Failure cases
         if (GITLET_DIR.exists() && GITLET_DIR.isDirectory()) {
             System.out.println("A Gitlet version-control system already exists in the current directory");
@@ -87,6 +112,7 @@ public class Repository {
         COMMITS_DIR.mkdir();
         REFS_DIR.mkdir();
         HEADS_DIR.mkdir();
+        REMOTES_DIR.mkdir();
 
         // initial commit
         Commit initialCommit = new Commit();
@@ -101,6 +127,8 @@ public class Repository {
 
         // create HEAD
         writeContents(HEAD, branchName);
+
+        writeContents(CONFIG, "");
     }
 
     /**
@@ -112,7 +140,7 @@ public class Repository {
      *
      * @param filename
      */
-    public static void add(String filename) {
+    public void add(String filename) {
         File file = join(CWD, filename);
         if (!file.exists()) {
             System.out.println("File does not exist.");
@@ -125,7 +153,7 @@ public class Repository {
         String headId = head.getBlobs().getOrDefault(filename, "");
         String stageId = stage.getAdded().getOrDefault(filename, "");
 
-        Blob blob = new Blob(filename);
+        Blob blob = new Blob(filename, CWD);
         String blobId = blob.getId();
 
         if (blobId.equals(headId)) {
@@ -151,7 +179,7 @@ public class Repository {
         }
     }
 
-    public static void rm(String filename) {
+    public void rm(String filename) {
         File file = join(CWD, filename);
 
         Commit head = getHead();
@@ -175,7 +203,7 @@ public class Repository {
             stage.getRemoved().add(filename);
         }
 
-        Blob blob = new Blob(filename);
+        Blob blob = new Blob(filename, CWD);
         String blobId = blob.getId();
         // If the file is tracked in the current commit
         // the same content? or just filename?
@@ -191,7 +219,7 @@ public class Repository {
     /**
      *
      */
-    public static void commit(String message) {
+    public void commit(String message) {
         if (message.equals("")) {
             System.out.println("Please enter a commit message.");
             System.exit(0);
@@ -202,7 +230,7 @@ public class Repository {
     }
 
 
-    public static void log() {
+    public void log() {
         StringBuffer sb = new StringBuffer();
         Commit commit = getHead();
         while (commit != null) {
@@ -213,7 +241,7 @@ public class Repository {
         System.out.print(sb);
     }
 
-    public static void global_log() {
+    public void global_log() {
         StringBuffer sb = new StringBuffer();
         List<String> filenames = plainFilenamesIn(COMMITS_DIR);
         for (String filename : filenames) {
@@ -223,7 +251,7 @@ public class Repository {
         System.out.println(sb);
     }
 
-    public static void find(String target) {
+    public void find(String target) {
         StringBuffer sb = new StringBuffer();
         List<String> filenames = plainFilenamesIn(COMMITS_DIR);
         for (String filename : filenames) {
@@ -239,14 +267,16 @@ public class Repository {
         System.out.println(sb);
     }
 
-    public static void status() {
+    public void status() {
         StringBuffer sb = new StringBuffer();
+
         sb.append("=== Branches ===\n");
         String headBranch = readContentsAsString(HEAD);
-        sb.append("*" + headBranch + "\n");
         List<String> branches = plainFilenamesIn(HEADS_DIR);
         for (String branch : branches) {
-            if (!branch.equals(headBranch)) {
+            if (branch.equals(headBranch)) {
+                sb.append("*" + headBranch + "\n");
+            } else {
                 sb.append(branch + "\n");
             }
         }
@@ -266,18 +296,59 @@ public class Repository {
         sb.append("\n");
 
         sb.append("=== Modifications Not Staged For Commit ===\n");
+        // List<String> modifiedFiles = getModifiedFiles(getCommitFromBranchName(headBranch), stage);
+        // for (String str : modifiedFiles) {
+        //     sb.append(str + "\n");
+        // }
         sb.append("\n");
 
         sb.append("=== Untracked Files ===\n");
+        // List<String> untrackedFiles = getUntrackedFiles();
+        // for (String filename : untrackedFiles) {
+        //     sb.append(filename + "\n");
+        // }
         sb.append("\n");
 
         System.out.println(sb);
     }
 
+    private List<String> getModifiedFiles(Commit head, Stage stage) {
+        List<String> res = new LinkedList<>();
+
+        List<String> currentFiles = plainFilenamesIn(CWD);
+        Set<String> headFiles = head.getBlobs().keySet();
+        List<String> stagedFiles = stage.getStagedFilename();
+
+        Set<String> allFiles = new HashSet<>();
+        allFiles.addAll(currentFiles);
+        allFiles.addAll(headFiles);
+        allFiles.addAll(stagedFiles);
+
+        for (String filename : allFiles) {
+            if (!currentFiles.contains(filename)) {
+                if (stage.getAdded().containsKey(filename) ||
+                   (headFiles.contains(filename) && !stagedFiles.contains(filename))) {
+                    res.add(filename + " (deleted)");
+                }
+            } else {
+                String bId = new Blob(filename, CWD).getId();
+                String sId = stage.getAdded().getOrDefault(filename, "");
+                String hId = head.getBlobs().getOrDefault(filename, "");
+                if ((hId != "" && hId != bId && sId == "") ||
+                    (sId != "" && sId != bId)){
+                    res.add(filename + " (modified)");
+                }
+            }
+        }
+
+        Collections.sort(res);
+        return res;
+    }
+
     /**
      * java gitlet.Main checkout -- [file name]
      */
-    public static void checkoutFileFromHead(String filename) {
+    public void checkoutFileFromHead(String filename) {
         Commit head = getHead();
         checkoutFileFromCommit(head, filename);
     }
@@ -287,7 +358,7 @@ public class Repository {
      *
      * @return
      */
-    public static void checkoutFileFromCommitId(String commitId, String filename) {
+    public void checkoutFileFromCommitId(String commitId, String filename) {
         commitId = getCompleteCommitId(commitId);
         File commitFile = join(COMMITS_DIR, commitId);
         if (!commitFile.exists()) {
@@ -302,7 +373,7 @@ public class Repository {
      * short id
      * starts with the same six digits
      */
-    private static String getCompleteCommitId(String commitId) {
+    private String getCompleteCommitId(String commitId) {
         if (commitId.length() == UID_LENGTH) {
             return commitId;
         }
@@ -315,12 +386,12 @@ public class Repository {
         return null;
     }
 
-    private static void checkoutFileFromCommit(Commit commit, String filename) {
+    private void checkoutFileFromCommit(Commit commit, String filename) {
         String blobId = commit.getBlobs().getOrDefault(filename, "");
         checkoutFileFromBlobId(blobId);
     }
 
-    private static void checkoutFileFromBlobId(String blobId) {
+    private void checkoutFileFromBlobId(String blobId) {
         if (blobId.equals("")) {
             System.out.println("File does not exist in that commit.");
             System.exit(0);
@@ -329,7 +400,7 @@ public class Repository {
         checkoutFileFromBlob(blob);
     }
 
-    private static void checkoutFileFromBlob(Blob blob) {
+    private void checkoutFileFromBlob(Blob blob) {
         File file = join(CWD, blob.getFilename());
         writeContents(file, blob.getContent());
     }
@@ -337,9 +408,9 @@ public class Repository {
     /**
      * java gitlet.Main checkout [branch name]
      */
-    public static void checkoutBranch(String branchName) {
-        File branchFile = join(HEADS_DIR, branchName);
-        if (!branchFile.exists()) {
+    public void checkoutBranch(String branchName) {
+        File branchFile = getBranchFile(branchName);
+        if (branchFile == null || !branchFile.exists()) {
             System.out.println("No such branch exists.");
             System.exit(0);
         }
@@ -363,6 +434,26 @@ public class Repository {
         writeContents(HEAD, branchName);
     }
 
+    private Commit getCommitFromBranchName(String branchName) {
+        File file = getBranchFile(branchName);
+        return getCommitFromBranchFile(file);
+    }
+
+    /**
+     * [branch]
+     * [R1/branch]
+     */
+    private File getBranchFile(String branchName) {
+        File file = null;
+        String[] branches = branchName.split("/");
+        if (branches.length == 1) {
+            file = join(HEADS_DIR, branchName);
+        } else if (branches.length == 2) {
+            file = join(REMOTES_DIR, branches[0], branches[1]);
+        }
+        return file;
+    }
+
 
     /**
      * java gitlet.Main branch [branch name]
@@ -370,7 +461,7 @@ public class Repository {
      * This command does NOT immediately switch to the newly created branch
      * (just as in real Git).
      */
-    public static void branch(String branchName) {
+    public void branch(String branchName) {
         File branch = join(HEADS_DIR, branchName);
         if (branch.exists()) {
             System.out.println("A branch with that name already exists.");
@@ -381,10 +472,16 @@ public class Repository {
         writeContents(branch, commitId);
     }
 
+    private String getHeadCommitId() {
+        String branchName = getHeadBranchName();
+        File file = getBranchFile(branchName);
+        return readContentsAsString(file);
+    }
+
     /**
      * java gitlet.Main rm-branch [branch name]
      */
-    public static void rmBranch(String branchName) {
+    public void rmBranch(String branchName) {
         File branch = join(HEADS_DIR, branchName);
         if (!branch.exists()) {
             System.out.println("A branch with that name does not exist.");
@@ -400,7 +497,7 @@ public class Repository {
         branch.delete();
     }
 
-    public static void reset(String commitId) {
+    public void reset(String commitId) {
         File file = join(COMMITS_DIR, commitId);
         if (!file.exists()) {
             System.out.println("No commit with that id exists.");
@@ -422,7 +519,7 @@ public class Repository {
     /**
      * java gitlet.Main merge [branch name]
      */
-    public static void merge(String otherBranchName) {
+    public void merge(String otherBranchName) {
         // failure cases:
         Stage stage = readStage();
         if (!stage.isEmpty()) {
@@ -430,8 +527,8 @@ public class Repository {
             System.exit(0);
         }
 
-        File branchFile = join(HEADS_DIR, otherBranchName);
-        if (!branchFile.exists()) {
+        File otherBranchFile = getBranchFile(otherBranchName);
+        if (!otherBranchFile.exists()) {
             System.out.println("A branch with that name does not exist.");
             System.exit(0);
         }
@@ -443,7 +540,7 @@ public class Repository {
         }
 
         Commit head = getCommitFromBranchName(headBranchName);
-        Commit other = getCommitFromBranchName(otherBranchName);
+        Commit other = getCommitFromBranchFile(otherBranchFile);
         Commit lca = getLatestCommonAncestor(head, other);
 
         // 1. lca == given a.k.a given <-- current
@@ -470,10 +567,208 @@ public class Repository {
 
 
     /**
+     * add-remote [remote name] [name of remote directory]/.gitlet
+     */
+    public void addRemote(String remoteName, String remotePath) {
+        File remote = join(REMOTES_DIR, remoteName);
+        if (remote.exists()) {
+            System.out.println("A remote with that name already exists.");
+            System.exit(0);
+        }
+        remote.mkdir();
+
+        // java.io.File.separator
+        if (File.separator.equals("\\")) {
+            remotePath = remotePath.replaceAll("/", "\\\\\\\\");
+        }
+
+        /*
+        [remote "origin"]
+	        url = ..\\remotegit\\.git
+	        fetch = +refs/heads/*:refs/remotes/origin/*
+         */
+        String content = readContentsAsString(CONFIG);
+        content += "[remote \"" + remoteName + "\"]\n";
+        content += remotePath + "\n";
+
+        writeContents(CONFIG, content);
+    }
+
+    /**
+     * java gitlet.Main rm-remote [remote name]
+     */
+    public void rmRemote(String remoteName) {
+        File remote = join(REMOTES_DIR, remoteName);
+        if (!remote.exists()) {
+            System.out.println("A remote with that name does not exist.");
+            System.exit(0);
+        }
+
+        delFile(remote);
+
+        String[] contents = readContentsAsString(CONFIG).split("\n");
+        String target = "[remote \"" + remoteName + "\"]";;
+        StringBuffer sb = new StringBuffer();
+        for (int i = 0; i < contents.length;) {
+            if (contents[i].equals(target)) {
+                i += 2;
+            } else {
+                sb.append(contents[i]);
+            }
+        }
+        writeContents(CONFIG, sb.toString());
+    }
+
+    /**
+     * java gitlet.Main push [remote name] [remote branch name]
+     */
+    public void push(String remoteName, String remoteBranchName) {
+        File remotePath = getRemotePath(remoteName);
+        Repository remote = new Repository(remotePath.getParent());
+
+        Commit head = getHead();
+        List<String> history = getHistory(head);
+        Commit remoteHead = remote.getHead();
+        if (!history.contains(remoteHead.getID())) {
+            System.out.println("Please pull down remote changes before pushing.");
+            System.exit(0);
+        }
+
+        // If the Gitlet system on the remote machine exists
+        // but does not have the input branch,
+        // then simply add the branch to the remote Gitlet.
+        File remoteBranch = join(remote.HEADS_DIR, remoteBranchName);
+        if (!remoteBranch.exists()) {
+            remote.branch(remoteBranchName);
+        }
+
+        // append the future commits to the remote branch.
+        for (String commitId : history) {
+            if (commitId.equals(remoteHead.getID())) {
+                break;
+            }
+            Commit commit = getCommitFromId(commitId);
+            File remoteCommit = join(remote.COMMITS_DIR, commitId);
+            writeObject(remoteCommit, commit);
+
+            if (!commit.getBlobs().isEmpty()) {
+                for (Map.Entry<String, String> item: commit.getBlobs().entrySet()) {
+                    String blobId = item.getValue();
+                    Blob blob = getBlobFromId(blobId);
+
+                    File remoteBlob = join(remote.BLOBS_DIR, blobId);
+                    writeObject(remoteBlob, blob);
+                }
+            }
+        }
+
+        // Then, the remote should reset to the front of the appended commits
+        // (so its head will be the same as the local head).
+        remote.reset(head.getID());
+    }
+
+    private List<String> getHistory(Commit head) {
+        List<String> res = new LinkedList<>();
+        Queue<Commit> queue = new LinkedList<>();
+        queue.add(head);
+        while (!queue.isEmpty()) {
+            Commit commit = queue.poll();
+            if (!res.contains(commit.getID()) && !commit.getParents().isEmpty()) {
+                for (String id : commit.getParents()) {
+                    queue.add(getCommitFromId(id));
+                }
+            }
+            res.add(commit.getID());
+        }
+        return res;
+    }
+
+    private File getRemotePath(String remoteName) {
+        String path = "";
+        String[] contents = readContentsAsString(CONFIG).split("\n");
+        for (int i = 0; i < contents.length;) {
+            if (contents[i].contains(remoteName)) {
+                path = contents[i + 1];
+                break;
+            } else {
+                i += 2;
+            }
+        }
+
+        File file = null;
+        try {
+            file = new File(path).getCanonicalFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        if (path.equals("") || !file.exists()) {
+            System.out.println("Remote directory not found.");
+            System.exit(0);
+        }
+        return file;
+    }
+
+    /**
+     * java gitlet.Main fetch [remote name] [remote branch name]
+     */
+    public void fetch(String remoteName, String remoteBranchName) {
+        File remotePath = getRemotePath(remoteName);
+
+        Repository remote = new Repository(remotePath.getParent());
+
+        File remoteBranchFile = remote.getBranchFile(remoteBranchName);
+        if (remoteBranchFile == null || !remoteBranchFile.exists()) {
+            System.out.println("That remote does not have that branch.");
+            System.exit(0);
+        }
+
+        Commit remoteBranchCommit = remote.getCommitFromBranchFile(remoteBranchFile);
+
+        // This branch is created in the local repository if it did not previously exist.
+        // just update remotes/[remote]/[remote branch] file to new Commit id.
+        File branch = join(REMOTES_DIR, remoteName, remoteBranchName);
+        writeContents(branch, remoteBranchCommit.getID());
+
+        // fetch down all commits and blobs
+        List<String> history = remote.getHistory(remoteBranchCommit);
+
+        for (String commitId : history) {
+            Commit commit = remote.getCommitFromId(commitId);
+            File commitFile = join(COMMITS_DIR, commit.getID());
+            if (commitFile.exists()) {
+                continue;
+            }
+            writeObject(commitFile, commit);
+
+            if (commit.getBlobs().isEmpty()) {
+                continue;
+            }
+            for (Map.Entry<String, String> item: commit.getBlobs().entrySet()) {
+                String blobId = item.getValue();
+                Blob blob = remote.getBlobFromId(blobId);
+
+                File blobFile = join(BLOBS_DIR, blobId);
+                writeObject(blobFile, blob);
+            }
+        }
+    }
+
+    /**
+     * java gitlet.Main pull [remote name] [remote branch name]
+     */
+    public void pull(String remoteName, String remoteBranchName) {
+        fetch(remoteName, remoteBranchName);
+
+        merge(remoteName + "/" + remoteBranchName);
+    }
+
+
+
+    /**
      * Helper Functions
      */
 
-    private static void commitWith(String message, List<Commit> parents) {
+    private void commitWith(String message, List<Commit> parents) {
         Stage stage = readStage();
         // If no files have been staged, abort.
         if (stage.isEmpty()) {
@@ -486,13 +781,15 @@ public class Repository {
         writeCommitToFile(commit);
 
         String commitId = commit.getID();
-        File branch = getHeadBranchFile();
+        String branchName = getHeadBranchName();
+        File branch = getBranchFile(branchName);
         writeContents(branch, commitId);
     }
 
 
+
     // The split point is a latest common ancestor of the current and given branch heads
-    private static Commit getLatestCommonAncestor(Commit head, Commit other) {
+    private Commit getLatestCommonAncestor(Commit head, Commit other) {
         Set<String> headAncestors = bfsFromCommit(head);
 
         Queue<Commit> queue = new LinkedList<>();
@@ -511,7 +808,7 @@ public class Repository {
         return new Commit();
     }
 
-    private static Set<String> bfsFromCommit(Commit head) {
+    private Set<String> bfsFromCommit(Commit head) {
         Set<String> res = new HashSet<>();
         Queue<Commit> queue = new LinkedList<>();
         queue.add(head);
@@ -527,7 +824,7 @@ public class Repository {
         return res;
     }
 
-    private static void mergeWithLCA(Commit lca, Commit head, Commit other) {
+    private void mergeWithLCA(Commit lca, Commit head, Commit other) {
         Set<String> filenames = getAllFilenames(lca, head, other);
 
         List<String> remove = new LinkedList<>();
@@ -612,7 +909,7 @@ public class Repository {
          */
     }
 
-    private static String getContentAsStringFromBlobId(String blobId) {
+    private String getContentAsStringFromBlobId(String blobId) {
         if (blobId.equals("")) {
             return "";
         }
@@ -620,7 +917,7 @@ public class Repository {
     }
 
 
-    private static String getConflictFile(String[] head, String[] other) {
+    private String getConflictFile(String[] head, String[] other) {
         StringBuffer sb = new StringBuffer();
         int len1 = head.length, len2 = other.length;
         int i = 0, j = 0;
@@ -646,7 +943,7 @@ public class Repository {
         return sb.toString();
     }
 
-    private static String getConflictContent(String head, String other) {
+    private String getConflictContent(String head, String other) {
         StringBuffer sb = new StringBuffer();
         sb.append("<<<<<<< HEAD\n");
         // contents of file in current branch
@@ -658,7 +955,7 @@ public class Repository {
         return sb.toString();
     }
 
-    private static void rewriteFile(String filename, String content) {
+    private void rewriteFile(String filename, String content) {
         File file = join(CWD, filename);
         writeContents(file, content);
     }
@@ -666,12 +963,12 @@ public class Repository {
     /**
      * be sure that blob id is not "".
      */
-    private static Blob getBlobFromId(String blobId) {
+    private Blob getBlobFromId(String blobId) {
         File file = join(BLOBS_DIR, blobId);
         return readObject(file, Blob.class);
     }
 
-    private static Set<String> getAllFilenames(Commit lca, Commit head, Commit other) {
+    private Set<String> getAllFilenames(Commit lca, Commit head, Commit other) {
         Set<String> set = new HashSet<>();
         set.addAll(lca.getBlobs().keySet());
         set.addAll(head.getBlobs().keySet());
@@ -683,14 +980,14 @@ public class Repository {
      * If a working file is untracked in the current branch
      * and would be overwritten by the blobs(checkout).
      */
-    private static void validUntrackedFile(Map<String, String> blobs) {
+    private void validUntrackedFile(Map<String, String> blobs) {
         List<String> untrackedFiles = getUntrackedFiles();
         if (untrackedFiles.isEmpty()) {
             return;
         }
 
         for (String filename : untrackedFiles) {
-            String blobId = new Blob(filename).getId();
+            String blobId = new Blob(filename, CWD).getId();
             String otherId = blobs.getOrDefault(filename, "");
             if (!otherId.equals(blobId)) {
                 System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
@@ -699,7 +996,7 @@ public class Repository {
         }
     }
 
-    private static List<String> getUntrackedFiles() {
+    private List<String> getUntrackedFiles() {
         List<String> res = new ArrayList<>();
         List<String> stageFiles = readStage().getStagedFilename();
         Set<String> headFiles = getHead().getBlobs().keySet();
@@ -708,10 +1005,11 @@ public class Repository {
                 res.add(filename);
             }
         }
+        Collections.sort(res);
         return res;
     }
 
-    private static void replaceWorkingPlaceWithCommit(Commit commit) {
+    private void replaceWorkingPlaceWithCommit(Commit commit) {
         clearWorkingSpace();
 
         for (Map.Entry<String, String> item : commit.getBlobs().entrySet()) {
@@ -724,14 +1022,14 @@ public class Repository {
         }
     }
 
-    private static void clearWorkingSpace() {
+    private void clearWorkingSpace() {
         File[] files = CWD.listFiles(gitletFliter);
         for (File file : files) {
             delFile(file);
         }
     }
 
-    private static void delFile(File file) {
+    private void delFile(File file) {
         if (file.isDirectory()) {
             for (File f : file.listFiles()) {
                 delFile(f);
@@ -740,14 +1038,14 @@ public class Repository {
         file.delete();
     }
 
-    private static FilenameFilter gitletFliter = new FilenameFilter() {
+    private FilenameFilter gitletFliter = new FilenameFilter() {
         @Override
         public boolean accept(File dir, String name) {
             return !name.equals(".gitlet");
         }
     };
 
-    private static List<File> getWorkingSpaceFiles() {
+    private List<File> getWorkingSpaceFiles() {
         File[] files = CWD.listFiles(gitletFliter);
         if (files == null) {
             return null;
@@ -757,17 +1055,12 @@ public class Repository {
         }
     }
 
-
-    private static File getHeadBranchFile() {
-        return join(HEADS_DIR, readContentsAsString(HEAD));   // ..\refs\heads\<branch name>
-    }
-
     /**
      * moving all staging dir's blob file to blobs dir.
      *
      * @param stage
      */
-    private static void clearStage(Stage stage) {
+    private void clearStage(Stage stage) {
         File[] files = STAGING_DIR.listFiles();
         if (files == null) {
             return;
@@ -785,24 +1078,23 @@ public class Repository {
         writeStage(new Stage());
     }
 
-    private static Stage readStage() {
+    private Stage readStage() {
         return readObject(STAGE, Stage.class);
     }
 
-    private static void writeStage(Stage stage) {
+    private void writeStage(Stage stage) {
         writeObject(STAGE, stage);
     }
 
-    private static String getHeadBranchName() {
+    private String getHeadBranchName() {
         return readContentsAsString(HEAD);
     }
 
-    private static String getCommitIdFromBranchName(String branchName) {
-        File tip = join(HEADS_DIR, branchName);
-        return readContentsAsString(tip);
+    private String getCommitIdFromBranchFile(File file) {
+        return readContentsAsString(file);
     }
 
-    private static Commit getCommitFromId(String commitId) {
+    private Commit getCommitFromId(String commitId) {
         File file = join(COMMITS_DIR, commitId);
         if (commitId.equals("null") || !file.exists()) {
             return null;
@@ -810,19 +1102,16 @@ public class Repository {
         return readObject(file, Commit.class);
     }
 
-    private static Commit getCommitFromBranchName(String branchName) {
-        String commitId = getCommitIdFromBranchName(branchName);
+    private Commit getCommitFromBranchFile(File file) {
+        String commitId = readContentsAsString(file);
         return getCommitFromId(commitId);
     }
 
-    private static String getHeadCommitId() {
-        String branchName = getHeadBranchName();
-        return getCommitIdFromBranchName(branchName);
-    }
 
-    private static Commit getHead() {
+    private Commit getHead() {
         String branchName = getHeadBranchName();
-        Commit head = getCommitFromBranchName(branchName);
+        File branchFile = getBranchFile(branchName);
+        Commit head = getCommitFromBranchFile(branchFile);
 
         if (head == null) {
             System.out.println("error! cannot find HEAD!");
@@ -832,8 +1121,8 @@ public class Repository {
         return head;
     }
 
-    private static void writeCommitToFile(Commit commit) {
-        File file = join(Repository.COMMITS_DIR, commit.getID());
+    private void writeCommitToFile(Commit commit) {
+        File file = join(COMMITS_DIR, commit.getID());
         writeObject(file, commit);
     }
 
@@ -841,26 +1130,26 @@ public class Repository {
     /**
      * check things
      */
-    static void checkIfInitDirectoryExists() {
+    void checkIfInitDirectoryExists() {
         if (!GITLET_DIR.isDirectory()) {
             System.out.println("Not in an initialized Gitlet directory.");
             System.exit(0);
         }
     }
 
-    static void checkCommandLength(int actual, int expected) {
+    void checkCommandLength(int actual, int expected) {
         if (actual != expected) {
             messageIncorrectOperands();
         }
     }
 
-    static void checkEqual(String actual, String expected) {
+    void checkEqual(String actual, String expected) {
         if (!actual.equals(expected)) {
             messageIncorrectOperands();
         }
     }
 
-    static void messageIncorrectOperands() {
+    void messageIncorrectOperands() {
         System.out.println("Incorrect operands.");
         System.exit(0);
     }

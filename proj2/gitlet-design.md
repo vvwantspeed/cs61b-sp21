@@ -46,9 +46,23 @@ Represent a commit.
 
 ## Algorithms
 
+### untracked files
+
++ For all files in current working area, but not staged or tracked at the head commit.
+
+### Modified Files
+
++ For all files in current working area, stage(added & removed) and head commit:
++ absent in the working directory - deleted:
+  + present in the stage added;
+  + present in the head, but not in the stage removed;
++ present in the working directory - modified:
+  + h != "" && h != b && add == "";
+  + add != "" && b != add;
+
 ### commit
 
-+ Create a new commit, with user input message, timestamp when it's created, parentId, tacking files.
++ Create a new commit, with user input message, timestamp when it's created, first parent Id, tacking files.
 + blobs should inherit from its parents, also with files in staging area, update the added and del the removed.
 + move all blob files in staging directory to blobs directory. Re-instantiate the stage object. aka, clear the stage. and write it back to the stage file.
 + change the tips of the branch, the content of master file. HEAD does not need to move since the file just store the path of the tips of branch.
@@ -84,6 +98,43 @@ Represent a commit.
     + `other == ""`: stage as removed
   + `l!=o` &&`l!=h`: conflict
 
+
+
+### REMOTE
+
+### rm
+
+just del remotes/[remote name] directory and relating text in config file.
+
+> `git pull` is essentially shorthand for a `git fetch` followed by a merge of whatever branch was just fetched.
+
+
+
+```git
+# just download
+git fetch [remote name] [remote branch name]
+# merge to current
+git merge [remote name]/[remote branch name]
+=
+# pull down
+git pull [remote name] [remote branch name]
+
+git fetch
+git rebase o/main
+=
+# shorthand for a fetch and a rebase!
+git pull --rebase
+
+git push
+
+# push up
+
+# rebase onto [branch name]
+git rebase [branch name]
+```
+
+
+
 ## Persistence
 
 ```
@@ -94,12 +145,18 @@ Represent a commit.
 	-- commits
 	-- refs
 		-- heads -> [master][branch name]
+		-- remotes
+			-- [remote git repo name] -> [master][branch name]
 	-- [HEAD]
+	-- [FETCH_HEAD]
 ```
 
 + `staging` directory : stores staged(added) blob file; name is blob id, content is the Blob object.  
 + `stage` file: stores Stage object.
 + `blobs` directory: stores all tracked(committed) file; name is blob id, content is the Blob object.  
 + `commits` directory: stores all commits; name is commit id, content is the Commit object.  
-+ `head` directory in `refs` : stores different branch; name is branch name, content is the commit id on the tip of the branch.
++ `heads` directory in `refs` : stores different branch; name is branch name, content is the commit id on the tip of the branch.
++ `remotes` directory in `refs`: stores different remote repo directory. 
 + `HEAD` file: stores current branch's name if it points to tip.
++ `config` file: remote git name & url.
+

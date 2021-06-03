@@ -115,6 +115,7 @@ class Utils {
      *  creating or overwriting it as needed.  Each object in CONTENTS may be
      *  either a String or a byte array.  Throws IllegalArgumentException
      *  in case of problems. */
+    // overwrite the file
     static void writeContents(File file, Object... contents) {
         try {
             if (file.isDirectory()) {
